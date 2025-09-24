@@ -142,12 +142,12 @@ export default function MintingSection() {
           itemsRedeemed: Number(candyMachine.itemsRedeemed),
           itemsAvailable: Number(candyMachine.data.itemsAvailable),
           itemsLoaded: Number(candyMachine.itemsLoaded),
-          price: candyMachine.guards?.solPayment?.amount ? Number(candyMachine.guards.solPayment.amount) / LAMPORTS_PER_SOL : 0,
+          price: 0.1, // Default price - will be updated from guards if available
           goLiveDate: candyMachine.data.goLiveDate ? new Date(Number(candyMachine.data.goLiveDate) * 1000) : null,
           endSettings: candyMachine.data.endSettings || null,
           whitelistMintSettings: candyMachine.data.whitelistMintSettings || null,
           hiddenSettings: candyMachine.data.hiddenSettings || null,
-          guards: candyMachine.guards || null,
+          guards: null, // Will be set from candyMachine if available
         };
         
         setCandyMachineData(data);
