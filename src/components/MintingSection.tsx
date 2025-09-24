@@ -10,7 +10,7 @@ import {
   mintV2,
   mplCandyMachine 
 } from '@metaplex-foundation/mpl-candy-machine';
-import { generateSigner } from '@metaplex-foundation/umi';
+import { generateSigner, publicKey } from '@metaplex-foundation/umi';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import { fetchDigitalAsset } from '@metaplex-foundation/mpl-token-metadata';
 import { Button } from '@/components/ui/button';
@@ -134,7 +134,8 @@ export default function MintingSection() {
         setIsLoading(true);
         const umi = createUmi(CANDY_MACHINE_CONFIG.RPC_URL).use(mplCandyMachine());
         
-        const candyMachine = await fetchCandyMachine(umi, new PublicKey(candyMachineId));
+        // Convert string to Umi PublicKey
+        const candyMachine = await fetchCandyMachine(umi, publicKey(candyMachineId));
         
         // Extract data from the candy machine
         const data: CandyMachineData = {
@@ -245,7 +246,8 @@ export default function MintingSection() {
       const umi = createUmi(CANDY_MACHINE_CONFIG.RPC_URL).use(mplCandyMachine());
       umi.use(walletAdapterIdentity(wallet.adapter));
 
-      const candyMachine = await fetchCandyMachine(umi, new PublicKey(candyMachineId));
+      // Convert string to Umi PublicKey
+      const candyMachine = await fetchCandyMachine(umi, publicKey(candyMachineId));
       
       // Generate a new mint keypair
       const nftMint = generateSigner(umi);
