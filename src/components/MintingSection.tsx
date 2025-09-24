@@ -140,7 +140,7 @@ export default function MintingSection() {
         // Extract data from the candy machine
         const data: CandyMachineData = {
           itemsRedeemed: Number(candyMachine.itemsRedeemed),
-          itemsAvailable: Number(candyMachine.itemsAvailable),
+          itemsAvailable: Number(candyMachine.data.itemsAvailable),
           itemsLoaded: Number(candyMachine.itemsLoaded),
           price: Number(candyMachine.data.price) / LAMPORTS_PER_SOL,
           goLiveDate: candyMachine.data.goLiveDate ? new Date(Number(candyMachine.data.goLiveDate) * 1000) : null,
