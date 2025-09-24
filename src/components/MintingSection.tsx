@@ -287,7 +287,25 @@ export default function MintingSection() {
 
     } catch (error) {
       console.error('Minting failed:', error);
-      setErrorMessage(`Minting failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Handle specific Solana errors
+      let errorMsg = 'Minting failed. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('User rejected')) {
+          errorMsg = 'Transaction was cancelled by user.';
+        } else if (error.message.includes('insufficient funds')) {
+          errorMsg = 'Insufficient SOL balance for minting.';
+        } else if (error.message.includes('blockhash not found')) {
+          errorMsg = 'Network congestion. Please try again.';
+        } else if (error.message.includes('Transaction simulation failed')) {
+          errorMsg = 'Transaction failed. Check your eligibility and balance.';
+        } else {
+          errorMsg = `Minting failed: ${error.message}`;
+        }
+      }
+      
+      setErrorMessage(errorMsg);
       setMintStatus('error');
     } finally {
       setIsMinting(false);
