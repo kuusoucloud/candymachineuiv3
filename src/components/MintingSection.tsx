@@ -43,7 +43,7 @@ export default function MintingSection() {
   const { publicKey, wallet, signTransaction, signAllTransactions } = useWallet();
   const { connection } = useConnection();
   const [isMinting, setIsMinting] = useState(false);
-  const [mintStatus, setMintStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [mintStatus, setMintStatus] = useState<'idle' | 'minting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [candyMachineData, setCandyMachineData] = useState<CandyMachineData | null>(null);
   const [balance, setBalance] = useState<number>(0);
@@ -237,7 +237,7 @@ export default function MintingSection() {
     }
 
     setIsMinting(true);
-    setMintStatus('idle');
+    setMintStatus('minting');
     setErrorMessage('');
 
     try {
@@ -307,6 +307,8 @@ export default function MintingSection() {
 
   const getStatusMessage = () => {
     switch (mintStatus) {
+      case 'minting':
+        return 'Minting in progress...';
       case 'success':
         return 'NFT minted successfully! 🎉';
       case 'error':
@@ -464,10 +466,13 @@ export default function MintingSection() {
             <Card className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
+                  {mintStatus === 'minting' && <Loader2 className="w-5 h-5 animate-spin text-purple-400" />}
                   {getStatusIcon()}
                   <div className="flex-1">
                     <span className={`font-medium ${
-                      mintStatus === 'success' ? 'text-green-400' : 'text-red-400'
+                      mintStatus === 'success' ? 'text-green-400' : 
+                      mintStatus === 'error' ? 'text-red-400' :
+                      'text-purple-400'
                     }`}>
                       {getStatusMessage()}
                     </span>
