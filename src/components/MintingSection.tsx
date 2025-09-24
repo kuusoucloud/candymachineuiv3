@@ -56,6 +56,7 @@ export default function MintingSection() {
     description: CANDY_MACHINE_CONFIG.COLLECTION_DESCRIPTION,
     image: CANDY_MACHINE_CONFIG.PREVIEW_IMAGE,
   });
+  const [mintedNft, setMintedNft] = useState<any>(null);
 
   const candyMachineId = CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID;
 
@@ -113,8 +114,9 @@ export default function MintingSection() {
   // Fetch candy machine data
   useEffect(() => {
     const fetchCandyMachineData = async () => {
-      if (candyMachineId === "YOUR_CANDY_MACHINE_ID_HERE") {
-        // Demo mode
+      // Check if we're in demo mode (placeholder ID)
+      if (candyMachineId === "YOUR_CANDY_MACHINE_ID_HERE" || !candyMachineId) {
+        // Demo mode - set mock data
         setCandyMachineData({
           itemsRedeemed: 500,
           itemsAvailable: 10000,
@@ -126,6 +128,17 @@ export default function MintingSection() {
           hiddenSettings: null,
           guards: null,
         });
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate that we have a proper PublicKey format before proceeding
+      try {
+        // Test if the candyMachineId is a valid PublicKey format
+        umiPublicKey(candyMachineId);
+      } catch (error) {
+        console.error('Invalid Candy Machine ID format:', error);
+        setErrorMessage('Invalid Candy Machine ID format. Please check your configuration.');
         setIsLoading(false);
         return;
       }
@@ -142,12 +155,12 @@ export default function MintingSection() {
           itemsRedeemed: Number(candyMachine.itemsRedeemed),
           itemsAvailable: Number(candyMachine.data.itemsAvailable),
           itemsLoaded: Number(candyMachine.itemsLoaded),
-          price: 0.1, // Default price - will be updated from guards if available
+          price: 0.1, // Default price - update this based on your candy machine configuration
           goLiveDate: candyMachine.data.goLiveDate ? new Date(Number(candyMachine.data.goLiveDate) * 1000) : null,
           endSettings: candyMachine.data.endSettings || null,
           whitelistMintSettings: candyMachine.data.whitelistMintSettings || null,
           hiddenSettings: candyMachine.data.hiddenSettings || null,
-          guards: null, // Will be set from candyMachine if available
+          guards: null, // Will be populated when you configure guards
         };
         
         setCandyMachineData(data);
@@ -195,14 +208,16 @@ export default function MintingSection() {
 
     fetchCandyMachineData();
 
-    // Set up real-time polling for candy machine data updates
-    const interval = setInterval(() => {
-      if (!isMinting) { // Don't poll while minting to avoid conflicts
-        fetchCandyMachineData();
-      }
-    }, 10000); // Poll every 10 seconds
+    // Set up real-time polling for candy machine data updates (only if not in demo mode)
+    if (candyMachineId !== "YOUR_CANDY_MACHINE_ID_HERE" && candyMachineId) {
+      const interval = setInterval(() => {
+        if (!isMinting) { // Don't poll while minting to avoid conflicts
+          fetchCandyMachineData();
+        }
+      }, 10000); // Poll every 10 seconds
 
-    return () => clearInterval(interval);
+      return () => clearInterval(interval);
+    }
   }, [candyMachineId, publicKey, isMinting, collectionMetadata.name]);
 
   // Re-check token gate when wallet connects
@@ -213,79 +228,110 @@ export default function MintingSection() {
   }, [publicKey, candyMachineData]);
 
   const handleMint = async () => {
-    if (!publicKey || !wallet || !candyMachineData) return;
+    if (!publicKey || !signTransaction) {
+      setErrorMessage('Please connect your wallet first');
+      return;
+    }
 
-    // Check token gate eligibility before minting
-    if (tokenGateStatus === 'not_eligible') {
-      setErrorMessage('You do not hold the required token to mint from this collection.');
-      setMintStatus('error');
+    // Demo mode - simulate minting
+    if (candyMachineId === "YOUR_CANDY_MACHINE_ID_HERE" || !candyMachineId) {
+      setIsMinting(true);
+      setMintStatus('minting');
+      setErrorMessage('');
+      
+      // Simulate minting delay
+      setTimeout(() => {
+        setMintStatus('success');
+        setMintedNft({
+          name: 'Demo NFT #1234',
+          image: CANDY_MACHINE_CONFIG.PREVIEW_IMAGE,
+          signature: 'demo_signature_' + Date.now(),
+        });
+        setIsMinting(false);
+        
+        // Update demo data
+        if (candyMachineData) {
+          setCandyMachineData({
+            ...candyMachineData,
+            itemsRedeemed: candyMachineData.itemsRedeemed + 1,
+          });
+        }
+      }, 3000);
+      return;
+    }
+
+    // Validate PublicKey format before proceeding
+    try {
+      umiPublicKey(candyMachineId);
+    } catch (error) {
+      setErrorMessage('Invalid Candy Machine ID format');
       return;
     }
 
     setIsMinting(true);
-    setMintStatus('idle');
+    setMintStatus('minting');
     setErrorMessage('');
-    setTransactionSignature('');
 
     try {
-      // Check if user has enough SOL (including gas fees)
-      const requiredBalance = candyMachineData.price + 0.01; // Add 0.01 SOL for gas
-      if (balance < requiredBalance) {
-        throw new Error(`Insufficient balance. You need at least ${requiredBalance.toFixed(3)} SOL (${candyMachineData.price} SOL for mint + ~0.01 SOL for gas fees).`);
-      }
-
-      if (candyMachineId === "YOUR_CANDY_MACHINE_ID_HERE") {
-        // Demo mode - simulate minting
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        setMintStatus('success');
-        setTransactionSignature('demo_transaction_signature');
-        return;
-      }
-
-      // Real candy machine minting
       const umi = createUmi(CANDY_MACHINE_CONFIG.RPC_URL).use(mplCandyMachine());
-      umi.use(walletAdapterIdentity(wallet.adapter));
+      
+      // Convert wallet to Umi format
+      const umiWallet = {
+        publicKey: umiPublicKey(publicKey.toBase58()),
+        signMessage: async (message: Uint8Array) => {
+          // This would need to be implemented based on your wallet adapter
+          throw new Error('Message signing not implemented');
+        },
+        signTransaction: async (transaction: any) => {
+          // This would need to be implemented based on your wallet adapter
+          return await signTransaction(transaction);
+        },
+      };
 
-      // Convert string to Umi PublicKey
+      umi.use({
+        install: (umi) => {
+          umi.identity = umiWallet;
+        },
+      });
+
+      // Fetch the candy machine
       const candyMachine = await fetchCandyMachine(umi, umiPublicKey(candyMachineId));
-      
-      // Generate a new mint keypair
-      const nftMint = generateSigner(umi);
-      
-      const result = await mintV2(umi, {
+
+      // Create mint instruction
+      const mintBuilder = mintV2(umi, {
         candyMachine: candyMachine.publicKey,
-        nftMint,
         collectionMint: candyMachine.collectionMint,
         collectionUpdateAuthority: candyMachine.authority,
-      }).sendAndConfirm(umi);
+      });
 
-      console.log('Mint successful:', result);
+      // Send transaction
+      const result = await mintBuilder.sendAndConfirm(umi);
+      
       setMintStatus('success');
-      setTransactionSignature(result.signature.toString());
-      
-      // Refresh candy machine data after successful mint
-      setTimeout(() => {
-        window.location.reload();
-      }, 3000);
-      
-    } catch (error: any) {
+      setMintedNft({
+        name: `${collectionMetadata.name} #${candyMachineData?.itemsRedeemed || 0 + 1}`,
+        image: collectionMetadata.image,
+        signature: result.signature,
+      });
+
+      // Refresh candy machine data
+      const updatedCandyMachine = await fetchCandyMachine(umi, umiPublicKey(candyMachineId));
+      setCandyMachineData({
+        itemsRedeemed: Number(updatedCandyMachine.itemsRedeemed),
+        itemsAvailable: Number(updatedCandyMachine.data.itemsAvailable),
+        itemsLoaded: Number(updatedCandyMachine.itemsLoaded),
+        price: 0.1, // Update based on your configuration
+        goLiveDate: updatedCandyMachine.data.goLiveDate ? new Date(Number(updatedCandyMachine.data.goLiveDate) * 1000) : null,
+        endSettings: updatedCandyMachine.data.endSettings || null,
+        whitelistMintSettings: updatedCandyMachine.data.whitelistMintSettings || null,
+        hiddenSettings: updatedCandyMachine.data.hiddenSettings || null,
+        guards: null,
+      });
+
+    } catch (error) {
       console.error('Minting failed:', error);
+      setErrorMessage(`Minting failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setMintStatus('error');
-      
-      // Handle specific error types
-      if (error.message?.includes('insufficient funds')) {
-        setErrorMessage('Insufficient SOL balance for minting and transaction fees.');
-      } else if (error.message?.includes('User rejected')) {
-        setErrorMessage('Transaction was cancelled by user.');
-      } else if (error.message?.includes('blockhash')) {
-        setErrorMessage('Transaction failed due to network congestion. Please try again.');
-      } else if (error.message?.includes('sold out')) {
-        setErrorMessage('This NFT collection is sold out.');
-      } else if (error.message?.includes('token gate') || error.message?.includes('TokenGate')) {
-        setErrorMessage('You do not hold the required token to mint from this collection.');
-      } else {
-        setErrorMessage(error.message || 'Minting failed. Please try again.');
-      }
     } finally {
       setIsMinting(false);
     }
