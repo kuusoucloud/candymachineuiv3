@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, Coins, Users, Clock, CheckCircle, XCircle, ExternalLink, Shield } from 'lucide-react';
 import WalletConnection from './WalletConnection';
-import { CANDY_MACHINE_CONFIG } from '@/lib/config';
+import { CANDY_MACHINE_CONFIG, validateConfig, isProductionMode } from '@/lib/config';
 
 interface CandyMachineData {
   itemsRedeemed: number;
@@ -114,20 +114,10 @@ export default function MintingSection() {
   // Fetch candy machine data
   useEffect(() => {
     const fetchCandyMachineData = async () => {
-      // Check if we're in demo mode (placeholder ID)
-      if (candyMachineId === "YOUR_CANDY_MACHINE_ID_HERE" || !candyMachineId) {
-        // Demo mode - set mock data
-        setCandyMachineData({
-          itemsRedeemed: 500,
-          itemsAvailable: 10000,
-          itemsLoaded: 10000,
-          price: 0.1,
-          goLiveDate: new Date(),
-          endSettings: null,
-          whitelistMintSettings: null,
-          hiddenSettings: null,
-          guards: null,
-        });
+      // Validate configuration first
+      const configErrors = validateConfig();
+      if (configErrors.length > 0) {
+        setErrorMessage(`Configuration Error: ${configErrors.join(', ')}`);
         setIsLoading(false);
         return;
       }
@@ -155,7 +145,7 @@ export default function MintingSection() {
           itemsRedeemed: Number(candyMachine.itemsRedeemed),
           itemsAvailable: Number(candyMachine.data.itemsAvailable),
           itemsLoaded: Number(candyMachine.itemsLoaded),
-          price: 0.1, // Default price - update this based on your candy machine configuration
+          price: 0.1, // Default price - will be updated from guards when available
           goLiveDate: candyMachine.data.goLiveDate ? new Date(Number(candyMachine.data.goLiveDate) * 1000) : null,
           endSettings: candyMachine.data.endSettings || null,
           whitelistMintSettings: candyMachine.data.whitelistMintSettings || null,
@@ -165,7 +155,7 @@ export default function MintingSection() {
         
         setCandyMachineData(data);
 
-        // Fetch collection metadata if collection mint exists (only on first load)
+        // Fetch collection metadata if collection mint exists
         if (candyMachine.collectionMint && collectionMetadata.name === CANDY_MACHINE_CONFIG.COLLECTION_NAME) {
           try {
             const collectionAsset = await fetchDigitalAsset(umi, candyMachine.collectionMint);
@@ -200,7 +190,7 @@ export default function MintingSection() {
         }
       } catch (error) {
         console.error('Error fetching candy machine:', error);
-        setErrorMessage('Failed to load Candy Machine data. Please check your Candy Machine ID.');
+        setErrorMessage('Failed to load Candy Machine data. Please check your Candy Machine ID and network connection.');
       } finally {
         setIsLoading(false);
       }
@@ -208,16 +198,14 @@ export default function MintingSection() {
 
     fetchCandyMachineData();
 
-    // Set up real-time polling for candy machine data updates (only if not in demo mode)
-    if (candyMachineId !== "YOUR_CANDY_MACHINE_ID_HERE" && candyMachineId) {
-      const interval = setInterval(() => {
-        if (!isMinting) { // Don't poll while minting to avoid conflicts
-          fetchCandyMachineData();
-        }
-      }, 10000); // Poll every 10 seconds
+    // Set up real-time polling for candy machine data updates
+    const interval = setInterval(() => {
+      if (!isMinting && isProductionMode()) { // Don't poll while minting to avoid conflicts
+        fetchCandyMachineData();
+      }
+    }, 10000); // Poll every 10 seconds
 
-      return () => clearInterval(interval);
-    }
+    return () => clearInterval(interval);
   }, [candyMachineId, publicKey, isMinting, collectionMetadata.name]);
 
   // Re-check token gate when wallet connects
@@ -233,30 +221,10 @@ export default function MintingSection() {
       return;
     }
 
-    // Demo mode - simulate minting
-    if (candyMachineId === "YOUR_CANDY_MACHINE_ID_HERE" || !candyMachineId) {
-      setIsMinting(true);
-      setMintStatus('minting');
-      setErrorMessage('');
-      
-      // Simulate minting delay
-      setTimeout(() => {
-        setMintStatus('success');
-        setMintedNft({
-          name: 'Demo NFT #1234',
-          image: CANDY_MACHINE_CONFIG.PREVIEW_IMAGE,
-          signature: 'demo_signature_' + Date.now(),
-        });
-        setIsMinting(false);
-        
-        // Update demo data
-        if (candyMachineData) {
-          setCandyMachineData({
-            ...candyMachineData,
-            itemsRedeemed: candyMachineData.itemsRedeemed + 1,
-          });
-        }
-      }, 3000);
+    // Validate configuration
+    const configErrors = validateConfig();
+    if (configErrors.length > 0) {
+      setErrorMessage(`Configuration Error: ${configErrors.join(', ')}`);
       return;
     }
 
@@ -309,7 +277,7 @@ export default function MintingSection() {
       
       setMintStatus('success');
       setMintedNft({
-        name: `${collectionMetadata.name} #${candyMachineData?.itemsRedeemed || 0 + 1}`,
+        name: `${collectionMetadata.name} #${(candyMachineData?.itemsRedeemed || 0) + 1}`,
         image: collectionMetadata.image,
         signature: result.signature,
       });
