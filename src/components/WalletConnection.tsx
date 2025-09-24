@@ -52,7 +52,6 @@ export default function WalletConnection() {
     console.log('Public Key:', publicKey?.toString());
     console.log('Wallet Name:', wallet?.adapter?.name);
     console.log('Balance:', balance);
-    console.log('Force Refresh:', forceRefresh);
     console.log('========================');
     
     if (connected && publicKey) {
@@ -62,7 +61,7 @@ export default function WalletConnection() {
       console.log('❌ Wallet not connected, clearing balance');
       setBalance(null);
     }
-  }, [connected, publicKey, connection, connecting, wallet, balance, forceRefresh]);
+  }, [connected, publicKey, connection]);
 
   const handleConnect = () => {
     setShowWalletModal(true);
@@ -85,8 +84,7 @@ export default function WalletConnection() {
         
         // Force a state update
         setTimeout(() => {
-          console.log('Forcing component re-render...');
-          setForceRefresh(prev => prev + 1);
+          console.log('Connection completed successfully');
         }, 500);
       } catch (connectError) {
         console.error('Connection error:', connectError);
