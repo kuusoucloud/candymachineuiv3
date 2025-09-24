@@ -144,10 +144,10 @@ export default function MintingSection() {
           itemsLoaded: Number(candyMachine.itemsLoaded),
           price: candyMachine.guards?.solPayment?.amount ? Number(candyMachine.guards.solPayment.amount) / LAMPORTS_PER_SOL : 0,
           goLiveDate: candyMachine.data.goLiveDate ? new Date(Number(candyMachine.data.goLiveDate) * 1000) : null,
-          endSettings: candyMachine.data.endSettings,
-          whitelistMintSettings: candyMachine.data.whitelistMintSettings,
-          hiddenSettings: candyMachine.data.hiddenSettings,
-          guards: candyMachine.guards,
+          endSettings: candyMachine.data.endSettings || null,
+          whitelistMintSettings: candyMachine.data.whitelistMintSettings || null,
+          hiddenSettings: candyMachine.data.hiddenSettings || null,
+          guards: candyMachine.guards || null,
         };
         
         setCandyMachineData(data);
@@ -203,7 +203,7 @@ export default function MintingSection() {
     }, 10000); // Poll every 10 seconds
 
     return () => clearInterval(interval);
-  }, [candyMachineId, publicKey, isMinting]);
+  }, [candyMachineId, publicKey, isMinting, collectionMetadata.name]);
 
   // Re-check token gate when wallet connects
   useEffect(() => {
