@@ -1,9 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
-  // Webpack configuration for Solana libraries
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -14,13 +10,26 @@ const nextConfig = {
         crypto: false,
       };
     }
+    
+    // Handle Solana web3.js issues
+    config.externals = config.externals || [];
+    config.externals.push({
+      'utf-8-validate': 'commonjs utf-8-validate',
+      'bufferutil': 'commonjs bufferutil',
+    });
+
     return config;
   },
-  // Environment variables for Vercel
-  env: {
-    NEXT_PUBLIC_SOLANA_RPC_URL: process.env.NEXT_PUBLIC_SOLANA_RPC_URL,
-    NEXT_PUBLIC_CANDY_MACHINE_PROGRAM_ID: process.env.NEXT_PUBLIC_CANDY_MACHINE_PROGRAM_ID,
-  },
+  transpilePackages: [
+    '@solana/wallet-adapter-base',
+    '@solana/wallet-adapter-react',
+    '@solana/wallet-adapter-react-ui',
+    '@solana/wallet-adapter-wallets',
+    '@solana/web3.js'
+  ],
+  experimental: {
+    esmExternals: 'loose'
+  }
 };
 
 module.exports = nextConfig;
