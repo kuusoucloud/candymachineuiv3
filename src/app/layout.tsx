@@ -1,28 +1,33 @@
-import { TempoInit } from "@/components/tempo-init";
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import Script from "next/script";
-import "./globals.css";
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+import SolanaWalletProvider from '@/components/WalletProvider'
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: "Tempo - Modern SaaS Starter",
-  description: "A modern full-stack starter template powered by Next.js",
-};
+  title: 'KUUSOU Cloud Gang PFP NFT',
+  description: 'Mint your KUUSOU Cloud Gang PFP NFT on Solana',
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <Script src="https://api.tempo.build/proxy-asset?url=https://storage.googleapis.com/tempo-public-assets/error-handling.js" />
+    <html lang="en">
+      <head>
+        <link 
+          rel="stylesheet" 
+          href="https://unpkg.com/@solana/wallet-adapter-react-ui@0.9.35/styles.css" 
+        />
+      </head>
       <body className={inter.className}>
-        {children}
-        <TempoInit />
+        <SolanaWalletProvider>
+          {children}
+        </SolanaWalletProvider>
       </body>
     </html>
-  );
+  )
 }
