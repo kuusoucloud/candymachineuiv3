@@ -40,7 +40,7 @@ interface CollectionMetadata {
 }
 
 export default function MintingSection() {
-  const { publicKey, wallet } = useWallet();
+  const { publicKey, wallet, signTransaction } = useWallet();
   const { connection } = useConnection();
   const [isMinting, setIsMinting] = useState(false);
   const [mintStatus, setMintStatus] = useState<'idle' | 'success' | 'error'>('idle');
