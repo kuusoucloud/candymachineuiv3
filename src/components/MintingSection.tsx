@@ -40,7 +40,7 @@ interface CollectionMetadata {
 }
 
 export default function MintingSection() {
-  const { publicKey, wallet, signTransaction } = useWallet();
+  const { publicKey, wallet, signTransaction, signAllTransactions } = useWallet();
   const { connection } = useConnection();
   const [isMinting, setIsMinting] = useState(false);
   const [mintStatus, setMintStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -216,7 +216,7 @@ export default function MintingSection() {
   }, [publicKey, candyMachineData]);
 
   const handleMint = async () => {
-    if (!publicKey || !signTransaction) {
+    if (!publicKey || !wallet) {
       setErrorMessage('Please connect your wallet first');
       return;
     }
@@ -237,37 +237,24 @@ export default function MintingSection() {
     }
 
     setIsMinting(true);
-    setMintStatus('minting');
+    setMintStatus('idle');
     setErrorMessage('');
 
     try {
-      const umi = createUmi(CANDY_MACHINE_CONFIG.RPC_URL).use(mplCandyMachine());
-      
-      // Convert wallet to Umi format
-      const umiWallet = {
-        publicKey: umiPublicKey(publicKey.toBase58()),
-        signMessage: async (message: Uint8Array) => {
-          // This would need to be implemented based on your wallet adapter
-          throw new Error('Message signing not implemented');
-        },
-        signTransaction: async (transaction: any) => {
-          // This would need to be implemented based on your wallet adapter
-          return await signTransaction(transaction);
-        },
-      };
-
-      umi.use({
-        install: (umi) => {
-          umi.identity = umiWallet;
-        },
-      });
+      const umi = createUmi(CANDY_MACHINE_CONFIG.RPC_URL)
+        .use(mplCandyMachine())
+        .use(walletAdapterIdentity(wallet.adapter));
 
       // Fetch the candy machine
       const candyMachine = await fetchCandyMachine(umi, umiPublicKey(candyMachineId));
 
+      // Generate a new mint signer
+      const nftMint = generateSigner(umi);
+
       // Create mint instruction
       const mintBuilder = mintV2(umi, {
         candyMachine: candyMachine.publicKey,
+        nftMint,
         collectionMint: candyMachine.collectionMint,
         collectionUpdateAuthority: candyMachine.authority,
       });
@@ -276,10 +263,12 @@ export default function MintingSection() {
       const result = await mintBuilder.sendAndConfirm(umi);
       
       setMintStatus('success');
+      setTransactionSignature(result.signature);
       setMintedNft({
         name: `${collectionMetadata.name} #${(candyMachineData?.itemsRedeemed || 0) + 1}`,
         image: collectionMetadata.image,
         signature: result.signature,
+        mint: nftMint.publicKey,
       });
 
       // Refresh candy machine data
@@ -482,7 +471,7 @@ export default function MintingSection() {
                     }`}>
                       {getStatusMessage()}
                     </span>
-                    {mintStatus === 'success' && transactionSignature && transactionSignature !== 'demo_transaction_signature' && (
+                    {mintStatus === 'success' && transactionSignature && (
                       <div className="mt-3">
                         <Button
                           variant="outline"
