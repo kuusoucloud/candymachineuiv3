@@ -4,9 +4,9 @@ export const CANDY_MACHINE_CONFIG = {
   RPC_URL: process.env.NEXT_PUBLIC_RPC_URL || 'https://solana-devnet.g.alchemy.com/v2/aqcGGlkD3YbzV_epKoRtQ',
   NETWORK: 'devnet' as const,
   // Collection metadata defaults
-  COLLECTION_NAME: 'NFT Collection',
-  COLLECTION_DESCRIPTION: 'A unique NFT collection on Solana',
-  PREVIEW_IMAGE: '/tokenpic-min.png',
+  COLLECTION_NAME: 'KUUSOU Cloud Gang',
+  COLLECTION_DESCRIPTION: 'A unique NFT collection featuring adorable cloud characters on Solana',
+  PREVIEW_IMAGE: '/kuusou-nft.png',
 };
 
 // Helper function to validate configuration

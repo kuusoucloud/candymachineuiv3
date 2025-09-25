@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
+import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
+import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
+import { fetchCandyMachine, safeFetchCandyGuard, CandyMachine, CandyGuard } from '@metaplex-foundation/mpl-candy-machine';
+import { publicKey } from '@metaplex-foundation/umi';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -19,10 +23,12 @@ interface CandyMachineData {
   isActive: boolean;
   isPresale: boolean;
   isWhitelistOnly: boolean;
+  collectionName?: string;
+  symbol?: string;
 }
 
 export default function MintingSection() {
-  const { publicKey, connected, signTransaction } = useWallet();
+  const { publicKey: walletPublicKey, connected, wallet } = useWallet();
   const { connection } = useConnection();
   const [candyMachineData, setCandyMachineData] = useState<CandyMachineData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,30 +47,63 @@ export default function MintingSection() {
           throw new Error('Candy Machine ID not configured');
         }
 
-        // Create a simple RPC call to get account info
-        const candyMachineId = new PublicKey(CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID);
-        const accountInfo = await connection.getAccountInfo(candyMachineId);
+        // Create UMI instance
+        const umi = createUmi(CANDY_MACHINE_CONFIG.RPC_URL);
         
-        if (!accountInfo) {
-          throw new Error('Candy Machine not found on devnet');
+        // Convert string to PublicKey for UMI
+        const candyMachineId = publicKey(CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID);
+        
+        console.log('Fetching Candy Machine:', CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID);
+        console.log('Using RPC:', CANDY_MACHINE_CONFIG.RPC_URL);
+
+        // Fetch the candy machine
+        const candyMachine = await fetchCandyMachine(umi, candyMachineId);
+        console.log('Candy Machine fetched:', candyMachine);
+
+        // Try to fetch candy guard (optional)
+        let candyGuard: CandyGuard | null = null;
+        try {
+          if (candyMachine.mintAuthority) {
+            candyGuard = await safeFetchCandyGuard(umi, candyMachine.mintAuthority);
+          }
+        } catch (guardError) {
+          console.log('No candy guard found or error fetching guard:', guardError);
         }
 
-        // For now, set mock data since we need the actual Candy Machine V3 program to parse the data
-        // In a real implementation, you'd use @metaplex-foundation/mpl-candy-machine
-        const mockData: CandyMachineData = {
-          itemsRedeemed: 0,
-          itemsAvailable: 1000,
-          price: 0.1, // 0.1 SOL
-          isActive: true,
+        // Parse the data
+        const itemsRedeemed = Number(candyMachine.itemsRedeemed);
+        const itemsAvailable = Number(candyMachine.itemsLoaded);
+        
+        // Default price (you might need to parse this from guards)
+        let price = 0.1; // Default fallback
+        
+        // Try to get price from sol payment guard if available
+        if (candyGuard?.guards?.solPayment?.__option === 'Some') {
+          price = Number(candyGuard.guards.solPayment.value.lamports) / 1e9;
+        }
+
+        const parsedData: CandyMachineData = {
+          itemsRedeemed,
+          itemsAvailable,
+          price,
+          isActive: itemsRedeemed < itemsAvailable, // Simple check
           isPresale: false,
           isWhitelistOnly: false,
-          goLiveDate: new Date(),
+          collectionName: CANDY_MACHINE_CONFIG.COLLECTION_NAME,
         };
 
-        setCandyMachineData(mockData);
+        console.log('Parsed Candy Machine data:', parsedData);
+        setCandyMachineData(parsedData);
+
       } catch (err) {
         console.error('Error loading Candy Machine:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load Candy Machine data');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load Candy Machine data';
+        setError(errorMessage);
+        
+        // Show more detailed error info
+        if (err instanceof Error && err.message.includes('Account does not exist')) {
+          setError(`Candy Machine not found on ${CANDY_MACHINE_CONFIG.NETWORK}. Please check the Candy Machine ID: ${CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID}`);
+        }
       } finally {
         setLoading(false);
       }
@@ -74,7 +113,7 @@ export default function MintingSection() {
   }, [connection]);
 
   const handleMint = async () => {
-    if (!connected || !publicKey || !candyMachineData) {
+    if (!connected || !walletPublicKey || !candyMachineData) {
       toast({
         title: "Wallet not connected",
         description: "Please connect your wallet to mint NFTs",
@@ -88,23 +127,21 @@ export default function MintingSection() {
       setError(null);
 
       // Check SOL balance
-      const balance = await connection.getBalance(publicKey);
+      const balance = await connection.getBalance(walletPublicKey);
       const balanceInSol = balance / 1e9;
       
       if (balanceInSol < candyMachineData.price) {
         throw new Error(`Insufficient SOL balance. Need ${candyMachineData.price} SOL, have ${balanceInSol.toFixed(4)} SOL`);
       }
 
-      // For devnet testing, we'll simulate a mint transaction
-      // In production, you'd use @metaplex-foundation/mpl-candy-machine to create the actual mint transaction
-      
       toast({
         title: "Minting NFT...",
         description: "Please confirm the transaction in your wallet",
       });
 
-      // Simulate transaction delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // For now, simulate the mint since implementing full mint requires more complex setup
+      // In production, you'd use mintV2 from @metaplex-foundation/mpl-candy-machine
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
       // Mock successful mint
       const mockTxId = 'mock_transaction_' + Date.now();
@@ -141,6 +178,7 @@ export default function MintingSection() {
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p className="text-gray-600">Loading Candy Machine data...</p>
+          <p className="text-sm text-gray-400 mt-2">ID: {CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID}</p>
         </div>
       </div>
     );
@@ -155,7 +193,7 @@ export default function MintingSection() {
           </CardHeader>
           <CardContent>
             <p className="text-gray-600 mb-4">{error}</p>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-500 space-y-1">
               <p><strong>Candy Machine ID:</strong> {CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID}</p>
               <p><strong>Network:</strong> {CANDY_MACHINE_CONFIG.NETWORK}</p>
               <p><strong>RPC:</strong> {CANDY_MACHINE_CONFIG.RPC_URL}</p>
@@ -172,7 +210,7 @@ export default function MintingSection() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            {CANDY_MACHINE_CONFIG.COLLECTION_NAME}
+            {candyMachineData?.collectionName || CANDY_MACHINE_CONFIG.COLLECTION_NAME}
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             {CANDY_MACHINE_CONFIG.COLLECTION_DESCRIPTION}
@@ -304,7 +342,13 @@ export default function MintingSection() {
                 <p><strong>Candy Machine:</strong> {CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID}</p>
                 <p><strong>Network:</strong> {CANDY_MACHINE_CONFIG.NETWORK}</p>
                 <p><strong>RPC:</strong> {CANDY_MACHINE_CONFIG.RPC_URL}</p>
-                {connected && <p><strong>Wallet:</strong> {publicKey?.toString().slice(0, 8)}...{publicKey?.toString().slice(-8)}</p>}
+                {connected && <p><strong>Wallet:</strong> {walletPublicKey?.toString().slice(0, 8)}...{walletPublicKey?.toString().slice(-8)}</p>}
+                {candyMachineData && (
+                  <>
+                    <p><strong>Items Loaded:</strong> {candyMachineData.itemsAvailable}</p>
+                    <p><strong>Items Redeemed:</strong> {candyMachineData.itemsRedeemed}</p>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
