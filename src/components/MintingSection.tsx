@@ -26,10 +26,6 @@ interface CandyMachineData {
   itemsAvailable: number;
   itemsLoaded: number;
   price: number;
-  goLiveDate: Date | null;
-  endSettings: any;
-  whitelistMintSettings: any;
-  hiddenSettings: any;
   guards: any;
 }
 
@@ -140,16 +136,12 @@ export default function MintingSection() {
         // Convert string to Umi PublicKey
         const candyMachine = await fetchCandyMachine(umi, umiPublicKey(candyMachineId));
         
-        // Extract data from the candy machine
+        // Extract only the essential data from the candy machine
         const data: CandyMachineData = {
           itemsRedeemed: Number(candyMachine.itemsRedeemed),
           itemsAvailable: Number(candyMachine.data.itemsAvailable),
           itemsLoaded: Number(candyMachine.itemsLoaded),
           price: 0.1, // Default price - will be updated from guards when available
-          goLiveDate: candyMachine.data.goLiveDate ? new Date(Number(candyMachine.data.goLiveDate) * 1000) : null,
-          endSettings: candyMachine.data.endSettings || null,
-          whitelistMintSettings: candyMachine.data.whitelistMintSettings || null,
-          hiddenSettings: candyMachine.data.hiddenSettings || null,
           guards: null, // Will be populated when you configure guards
         };
         
@@ -271,17 +263,13 @@ export default function MintingSection() {
         mint: nftMint.publicKey,
       });
 
-      // Refresh candy machine data
+      // Refresh candy machine data with simplified structure
       const updatedCandyMachine = await fetchCandyMachine(umi, umiPublicKey(candyMachineId));
       setCandyMachineData({
         itemsRedeemed: Number(updatedCandyMachine.itemsRedeemed),
         itemsAvailable: Number(updatedCandyMachine.data.itemsAvailable),
         itemsLoaded: Number(updatedCandyMachine.itemsLoaded),
         price: 0.1, // Update based on your configuration
-        goLiveDate: updatedCandyMachine.data.goLiveDate ? new Date(Number(updatedCandyMachine.data.goLiveDate) * 1000) : null,
-        endSettings: updatedCandyMachine.data.endSettings || null,
-        whitelistMintSettings: updatedCandyMachine.data.whitelistMintSettings || null,
-        hiddenSettings: updatedCandyMachine.data.hiddenSettings || null,
         guards: null,
       });
 
@@ -365,7 +353,7 @@ export default function MintingSection() {
 
   const itemsRemaining = candyMachineData.itemsAvailable - candyMachineData.itemsRedeemed;
   const progress = (candyMachineData.itemsRedeemed / candyMachineData.itemsAvailable) * 100;
-  const isLive = candyMachineData.goLiveDate ? new Date() >= candyMachineData.goLiveDate : true;
+  const isLive = true; // Simplified - always live since we removed goLiveDate
   const isSoldOut = itemsRemaining === 0;
   const isTokenGated = tokenGateStatus !== 'none';
   const canMint = !isMinting && !isSoldOut && isLive && 
@@ -513,7 +501,7 @@ export default function MintingSection() {
             </Card>
           )}
 
-          {/* Mint Button */}
+          {/* Mint Button - simplified without goLiveDate check */}
           <Card className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl">
             <CardContent className="p-8">
               {!publicKey ? (
@@ -522,14 +510,6 @@ export default function MintingSection() {
                     Connect your wallet to start minting
                   </p>
                   <WalletConnection />
-                </div>
-              ) : !isLive && candyMachineData.goLiveDate ? (
-                <div className="text-center">
-                  <Clock className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
-                  <p className="text-white/70 mb-2">Minting starts soon</p>
-                  <p className="text-white font-semibold">
-                    {candyMachineData.goLiveDate.toLocaleString()}
-                  </p>
                 </div>
               ) : (
                 <Button
