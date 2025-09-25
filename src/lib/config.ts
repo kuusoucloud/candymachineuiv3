@@ -1,3 +1,6 @@
+// Candy Machine Configuration
+export const CANDY_MACHINE_ID = process.env.NEXT_PUBLIC_CANDY_MACHINE_ID || '7fUJxMbbXNQCxuevBaibHFPwEVwjLCBYTF3QnXqcb1GU';
+
 // Candy Machine V3 Configuration
 export const CANDY_MACHINE_CONFIG = {
   // Replace with your actual Candy Machine Program ID from Sugar CLI
