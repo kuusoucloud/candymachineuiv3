@@ -90,10 +90,11 @@ export default function WalletConnection() {
         console.error('Connection error:', connectError);
         
         // Check if it's a user rejection
-        if (connectError.message?.includes('User rejected') || connectError.code === 4001) {
+        if (connectError instanceof Error && (connectError.message?.includes('User rejected') || (connectError as any).code === 4001)) {
           console.log('User rejected the connection request');
         } else {
-          alert(`Failed to connect to ${walletName}. Error: ${connectError.message || 'Unknown error'}`);
+          const errorMessage = connectError instanceof Error ? connectError.message : 'Unknown error';
+          alert(`Failed to connect to ${walletName}. Error: ${errorMessage}`);
         }
       }
       
