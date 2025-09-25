@@ -255,11 +255,11 @@ export default function MintingSection() {
       const result = await mintBuilder.sendAndConfirm(umi);
       
       setMintStatus('success');
-      setTransactionSignature(result.signature);
+      setTransactionSignature(result.signature.toString());
       setMintedNft({
         name: `${collectionMetadata.name} #${(candyMachineData?.itemsRedeemed || 0) + 1}`,
         image: collectionMetadata.image,
-        signature: result.signature,
+        signature: result.signature.toString(),
         mint: nftMint.publicKey,
       });
 
