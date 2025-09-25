@@ -1,7 +1,7 @@
 // Candy Machine V3 Configuration for Devnet
 export const CANDY_MACHINE_CONFIG = {
   CANDY_MACHINE_ID: process.env.NEXT_PUBLIC_CANDY_MACHINE_ID || 'DAkeJ58KaDE64QxgXxe2Kc4hCQuzYSF8oNuuWVhgQfBS',
-  RPC_URL: process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com',
+  RPC_URL: process.env.NEXT_PUBLIC_RPC_URL || 'https://solana-devnet.g.alchemy.com/v2/aqcGGlkD3YbzV_epKoRtQ',
   NETWORK: 'devnet' as const,
   // Collection metadata defaults
   COLLECTION_NAME: 'NFT Collection',
