@@ -100,7 +100,8 @@ export default function WalletConnection() {
       
     } catch (error) {
       console.error('Error selecting wallet:', error);
-      alert(`Failed to select wallet. Error: ${error.message || 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to select wallet. Error: ${errorMessage}`);
     }
   };
 
