@@ -10,13 +10,15 @@ import {
   TorusWalletAdapter,
   LedgerWalletAdapter,
 } from '@solana/wallet-adapter-wallets';
+import { CANDY_MACHINE_CONFIG } from '@/lib/config';
 
 export default function WalletProvider({ children }: { children: React.ReactNode }) {
-  const network = WalletAdapterNetwork.Mainnet;
+  // Use devnet since your Candy Machine is on devnet
+  const network = WalletAdapterNetwork.Devnet;
   
   const endpoint = useMemo(() => {
-    // Use public RPC endpoints for better reliability
-    return process.env.NEXT_PUBLIC_RPC_URL || clusterApiUrl(network);
+    // Use the RPC URL from config or fallback to devnet
+    return CANDY_MACHINE_CONFIG.RPC_URL || clusterApiUrl(network);
   }, [network]);
 
   const wallets = useMemo(
@@ -28,6 +30,12 @@ export default function WalletProvider({ children }: { children: React.ReactNode
     ],
     []
   );
+
+  console.log('=== WALLET PROVIDER CONFIG ===');
+  console.log('Network:', network);
+  console.log('RPC Endpoint:', endpoint);
+  console.log('Available wallets:', wallets.map(w => w.name));
+  console.log('==============================');
 
   return (
     <ConnectionProvider endpoint={endpoint}>
