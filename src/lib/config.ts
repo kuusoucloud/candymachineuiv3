@@ -1,11 +1,12 @@
-// Candy Machine Configuration
-export const CANDY_MACHINE_ID = process.env.NEXT_PUBLIC_CANDY_MACHINE_ID || '7fUJxMbbXNQCxuevBaibHFPwEVwjLCBYTF3QnXqcb1GU';
-
 // Candy Machine V3 Configuration
 export const CANDY_MACHINE_CONFIG = {
   CANDY_MACHINE_ID: process.env.NEXT_PUBLIC_CANDY_MACHINE_ID || '7f25YpNjdjR2xJ5sPGV4Qe6c8tE6m9EmVwHq2kNQaRZT',
   RPC_URL: process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com',
   NETWORK: 'devnet' as const,
+  // Collection metadata defaults
+  COLLECTION_NAME: 'NFT Collection',
+  COLLECTION_DESCRIPTION: 'A unique NFT collection on Solana',
+  PREVIEW_IMAGE: '/tokenpic-min.png',
 };
 
 // Helper function to validate configuration
