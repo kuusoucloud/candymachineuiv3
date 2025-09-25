@@ -2,6 +2,7 @@
 
 import MintingSection from "@/components/MintingSection";
 import WalletProvider from "@/components/WalletProvider";
+import WalletConnection from "@/components/WalletConnection";
 
 export default function Home() {
   return (
@@ -31,6 +32,17 @@ export default function Home() {
             <div className="absolute top-1/2 w-40 h-20 bg-white/75 rounded-full blur-xl animate-[slide_9s_linear_infinite] [animation-delay:5s] hover:animate-pulse" style={{left: '-160px'}}></div>
             <div className="absolute top-20 w-60 h-30 bg-white/68 rounded-full blur-2xl animate-[slide_11s_linear_infinite] [animation-delay:6s] hover:animate-pulse" style={{left: '-240px'}}></div>
             <div className="absolute bottom-20 w-44 h-22 bg-white/72 rounded-full blur-lg animate-[slide_13s_linear_infinite] [animation-delay:7s] hover:animate-pulse" style={{left: '-176px'}}></div>
+          </div>
+          
+          {/* Header with Wallet Connection */}
+          <div className="relative z-40 p-4">
+            <div className="container mx-auto flex justify-between items-center">
+              <div className="text-white">
+                <h1 className="text-2xl font-bold">KUUSOU Cloud Gang</h1>
+                <p className="text-sm text-white/70">Solana NFT Collection</p>
+              </div>
+              <WalletConnection />
+            </div>
           </div>
           
           {/* Main Content */}

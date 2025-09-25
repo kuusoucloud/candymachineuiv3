@@ -1,7 +1,7 @@
 // Candy Machine V3 Configuration for Devnet
 export const CANDY_MACHINE_CONFIG = {
-  CANDY_MACHINE_ID: process.env.NEXT_PUBLIC_CANDY_MACHINE_ID || 'DAkeJ58KaDE64QxgXxe2Kc4hCQuzYSF8oNuuWVhgQfBS',
-  RPC_URL: process.env.NEXT_PUBLIC_RPC_URL || 'https://solana-devnet.g.alchemy.com/v2/aqcGGlkD3YbzV_epKoRtQ',
+  CANDY_MACHINE_ID: 'DAkeJ58KaDE64QxgXxe2Kc4hCQuzYSF8oNuuWVhgQfBS',
+  RPC_URL: 'https://solana-devnet.g.alchemy.com/v2/aqcGGlkD3YbzV_epKoRtQ',
   NETWORK: 'devnet' as const,
   // Collection metadata defaults
   COLLECTION_NAME: 'KUUSOU Cloud Gang',
@@ -14,11 +14,11 @@ export const validateConfig = () => {
   const errors = [];
   
   if (!CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID) {
-    errors.push("CANDY_MACHINE_ID is required. Please set NEXT_PUBLIC_CANDY_MACHINE_ID environment variable.");
+    errors.push("CANDY_MACHINE_ID is required.");
   }
   
   if (!CANDY_MACHINE_CONFIG.RPC_URL) {
-    errors.push("RPC_URL is required. Please set NEXT_PUBLIC_RPC_URL environment variable.");
+    errors.push("RPC_URL is required.");
   }
   
   return errors;

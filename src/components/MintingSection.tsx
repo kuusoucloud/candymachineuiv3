@@ -2,36 +2,37 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Loader2, ExternalLink } from 'lucide-react';
-import { CANDY_MACHINE_CONFIG } from '@/lib/config';
+import { Loader2, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from './ui/use-toast';
-
-interface CandyMachineData {
-  itemsRedeemed: number;
-  itemsAvailable: number;
-  price: number;
-  goLiveDate?: Date;
-  endDate?: Date;
-  isActive: boolean;
-  isPresale: boolean;
-  isWhitelistOnly: boolean;
-  collectionName?: string;
-  symbol?: string;
-}
+import {
+  createUmiInstance,
+  fetchCandyMachineData,
+  fetchCandyGuardData,
+  checkMintEligibility,
+  mintNFT,
+  getMintedNFTData,
+  CandyMachineData,
+  CandyGuardData,
+  MintResult,
+} from '@/lib/candyMachine';
+import { CANDY_MACHINE_CONFIG } from '@/lib/config';
 
 export default function MintingSection() {
   const { publicKey: walletPublicKey, connected, wallet } = useWallet();
   const { connection } = useConnection();
+  
   const [candyMachineData, setCandyMachineData] = useState<CandyMachineData | null>(null);
+  const [candyGuardData, setCandyGuardData] = useState<CandyGuardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [minting, setMinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mintedNft, setMintedNft] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [mintResult, setMintResult] = useState<MintResult | null>(null);
+  const [eligibility, setEligibility] = useState<{ canMint: boolean; reason?: string; price?: number } | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
 
   // Load Candy Machine data
   useEffect(() => {
@@ -40,90 +41,35 @@ export default function MintingSection() {
         setLoading(true);
         setError(null);
 
-        if (!CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID) {
-          throw new Error('Candy Machine ID not configured');
-        }
-
-        console.log('=== CANDY MACHINE DEBUG ===');
+        console.log('🚀 Loading Candy Machine data...');
         console.log('Candy Machine ID:', CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID);
         console.log('RPC URL:', CANDY_MACHINE_CONFIG.RPC_URL);
-        console.log('Network:', CANDY_MACHINE_CONFIG.NETWORK);
 
-        // Convert string to PublicKey
-        const candyMachineId = new PublicKey(CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID);
+        const umi = createUmiInstance(wallet?.adapter || undefined);
         
-        console.log('Checking account info...');
-        
-        // First check if account exists
-        const accountInfo = await connection.getAccountInfo(candyMachineId);
-        
-        if (!accountInfo) {
-          throw new Error(`Candy Machine account ${CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID} does not exist on ${CANDY_MACHINE_CONFIG.NETWORK}`);
-        }
+        // Fetch candy machine data
+        const cmData = await fetchCandyMachineData(umi);
+        setCandyMachineData(cmData);
+        console.log('✅ Candy Machine data loaded:', cmData);
 
-        console.log('✅ Account exists!');
-        console.log('Owner:', accountInfo.owner.toString());
-        console.log('Data length:', accountInfo.data.length);
-        console.log('Executable:', accountInfo.executable);
-        console.log('Lamports:', accountInfo.lamports);
+        // Fetch candy guard data
+        const cgData = await fetchCandyGuardData(umi);
+        setCandyGuardData(cgData);
+        console.log('✅ Candy Guard data loaded:', cgData);
 
-        // Check if it's the correct program
-        const CANDY_MACHINE_V2_PROGRAM = 'cndy3Z4yapfJBmL3ShUp5exZKqR3z33thTzeNMm2gRZ';
-        const CANDY_MACHINE_CORE_PROGRAM = 'CndyV3LdqHUfDLmE5naZjVN8rBZz4tqhdefbAnjHG3JR';
-        
-        const isV2Program = accountInfo.owner.toString() === CANDY_MACHINE_V2_PROGRAM;
-        const isCoreProgram = accountInfo.owner.toString() === CANDY_MACHINE_CORE_PROGRAM;
-        
-        console.log('Is Candy Machine V2 Program:', isV2Program);
-        console.log('Is Candy Machine Core Program:', isCoreProgram);
-
-        // Try to parse basic data from the raw account
-        let parsedData: CandyMachineData;
-        
-        if (isV2Program || isCoreProgram) {
-          // For now, let's show that we found the account and use some estimated data
-          // In a real implementation, you'd need to properly deserialize the account data
-          parsedData = {
-            itemsRedeemed: 0, // Would need to parse from account data
-            itemsAvailable: 1000, // Would need to parse from account data
-            price: 0.1, // Would need to parse from account data
-            isActive: true,
-            isPresale: false,
-            isWhitelistOnly: false,
-            collectionName: CANDY_MACHINE_CONFIG.COLLECTION_NAME,
-            symbol: 'KUUSOU',
-          };
-        } else {
-          throw new Error(`Unknown program owner: ${accountInfo.owner.toString()}`);
-        }
-
-        console.log('✅ Successfully parsed basic data:', parsedData);
-        setCandyMachineData(parsedData);
-
-        setDebugInfo({
-          accountExists: true,
-          owner: accountInfo.owner.toString(),
-          dataLength: accountInfo.data.length,
-          executable: accountInfo.executable,
-          lamports: accountInfo.lamports,
-          programType: isV2Program ? 'Candy Machine V2' : isCoreProgram ? 'Candy Machine Core' : 'Unknown',
-          candyMachineId: CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID,
-          rpcUrl: CANDY_MACHINE_CONFIG.RPC_URL,
-          network: CANDY_MACHINE_CONFIG.NETWORK,
-          rawDataPreview: accountInfo.data.slice(0, 100).toString('hex'), // First 100 bytes as hex
-        });
+        // Check mint eligibility
+        const eligibilityCheck = await checkMintEligibility(umi, cmData, cgData);
+        setEligibility(eligibilityCheck);
+        console.log('✅ Eligibility check:', eligibilityCheck);
 
       } catch (err) {
         console.error('❌ Error loading Candy Machine:', err);
         const errorMessage = err instanceof Error ? err.message : 'Failed to load Candy Machine data';
         setError(errorMessage);
-        
-        setDebugInfo({
-          error: errorMessage,
-          candyMachineId: CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID,
-          rpcUrl: CANDY_MACHINE_CONFIG.RPC_URL,
-          network: CANDY_MACHINE_CONFIG.NETWORK,
-          timestamp: new Date().toISOString(),
+        toast({
+          title: "Failed to load Candy Machine",
+          description: errorMessage,
+          variant: "destructive",
         });
       } finally {
         setLoading(false);
@@ -131,10 +77,30 @@ export default function MintingSection() {
     };
 
     loadCandyMachineData();
-  }, [connection]);
+  }, [wallet]);
+
+  // Load wallet balance
+  useEffect(() => {
+    const loadWalletBalance = async () => {
+      if (!connected || !walletPublicKey) {
+        setWalletBalance(0);
+        return;
+      }
+
+      try {
+        const balance = await connection.getBalance(walletPublicKey);
+        setWalletBalance(balance / LAMPORTS_PER_SOL);
+      } catch (err) {
+        console.error('Error loading wallet balance:', err);
+        setWalletBalance(0);
+      }
+    };
+
+    loadWalletBalance();
+  }, [connected, walletPublicKey, connection]);
 
   const handleMint = async () => {
-    if (!connected || !walletPublicKey || !candyMachineData) {
+    if (!connected || !walletPublicKey || !wallet?.adapter) {
       toast({
         title: "Wallet not connected",
         description: "Please connect your wallet to mint NFTs",
@@ -143,39 +109,60 @@ export default function MintingSection() {
       return;
     }
 
+    if (!eligibility?.canMint) {
+      toast({
+        title: "Cannot mint",
+        description: eligibility?.reason || "Minting not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check SOL balance
+    if (eligibility.price && walletBalance < eligibility.price) {
+      toast({
+        title: "Insufficient balance",
+        description: `You need ${eligibility.price} SOL but only have ${walletBalance.toFixed(4)} SOL`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setMinting(true);
       setError(null);
-
-      // Check SOL balance
-      const balance = await connection.getBalance(walletPublicKey);
-      const balanceInSol = balance / LAMPORTS_PER_SOL;
-      
-      if (balanceInSol < candyMachineData.price) {
-        throw new Error(`Insufficient SOL balance. Need ${candyMachineData.price} SOL, have ${balanceInSol.toFixed(4)} SOL`);
-      }
+      setMintResult(null);
 
       toast({
         title: "Minting NFT...",
-        description: "This is a demo - real minting requires proper SDK integration",
+        description: "Please confirm the transaction in your wallet",
       });
 
-      // Simulate minting for now
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      const umi = createUmiInstance(wallet.adapter);
+      const result = await mintNFT(umi, wallet.adapter);
 
-      const mockTxId = 'demo_transaction_' + Date.now();
-      setMintedNft(mockTxId);
-      
-      toast({
-        title: "Demo Mint Complete!",
-        description: "This was a simulation - integrate proper minting SDK for real functionality",
-      });
+      setMintResult(result);
 
-      // Update candy machine data
-      setCandyMachineData(prev => prev ? {
-        ...prev,
-        itemsRedeemed: prev.itemsRedeemed + 1
-      } : null);
+      if (result.success) {
+        toast({
+          title: "🎉 NFT Minted Successfully!",
+          description: `Transaction: ${result.signature?.slice(0, 8)}...`,
+        });
+
+        // Refresh candy machine data
+        const updatedCmData = await fetchCandyMachineData(umi);
+        setCandyMachineData(updatedCmData);
+
+        // Refresh wallet balance
+        const balance = await connection.getBalance(walletPublicKey);
+        setWalletBalance(balance / LAMPORTS_PER_SOL);
+      } else {
+        toast({
+          title: "Minting Failed",
+          description: result.error || "Unknown error occurred",
+          variant: "destructive",
+        });
+      }
 
     } catch (err) {
       console.error('Minting error:', err);
@@ -193,12 +180,11 @@ export default function MintingSection() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px] bg-white">
-        <div className="text-center">
+      <div className="flex items-center justify-center min-h-[400px] bg-white/10 backdrop-blur-lg rounded-xl">
+        <div className="text-center text-white">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Checking Candy Machine account...</p>
-          <p className="text-sm text-gray-400 mt-2">ID: {CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID}</p>
-          <p className="text-sm text-gray-400">RPC: {CANDY_MACHINE_CONFIG.RPC_URL}</p>
+          <p className="text-lg">Loading Candy Machine...</p>
+          <p className="text-sm opacity-75 mt-2">Connecting to Solana devnet</p>
         </div>
       </div>
     );
@@ -206,24 +192,21 @@ export default function MintingSection() {
 
   if (error && !candyMachineData) {
     return (
-      <div className="flex items-center justify-center min-h-[400px] bg-white">
-        <Card className="w-full max-w-2xl">
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Card className="w-full max-w-2xl bg-white/10 backdrop-blur-lg border-white/20">
           <CardHeader>
-            <CardTitle className="text-red-600">Candy Machine Account Check</CardTitle>
+            <CardTitle className="text-red-400 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              Failed to Load Candy Machine
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <div className="text-sm text-gray-500 space-y-1">
+          <CardContent className="text-white">
+            <p className="mb-4">{error}</p>
+            <div className="text-sm opacity-75 space-y-1">
               <p><strong>Candy Machine ID:</strong> {CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID}</p>
               <p><strong>Network:</strong> {CANDY_MACHINE_CONFIG.NETWORK}</p>
               <p><strong>RPC:</strong> {CANDY_MACHINE_CONFIG.RPC_URL}</p>
             </div>
-            {debugInfo && (
-              <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
-                <p><strong>Debug Info:</strong></p>
-                <pre className="whitespace-pre-wrap overflow-auto max-h-64">{JSON.stringify(debugInfo, null, 2)}</pre>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -231,158 +214,181 @@ export default function MintingSection() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            {candyMachineData?.collectionName || CANDY_MACHINE_CONFIG.COLLECTION_NAME}
-          </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            {CANDY_MACHINE_CONFIG.COLLECTION_DESCRIPTION}
-          </p>
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-blue-800 text-sm">
-              ✅ Candy Machine account found: {CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID}
-            </p>
+    <div className="max-w-6xl mx-auto">
+      {/* Success Banner */}
+      {candyMachineData && (
+        <div className="mb-8 p-4 bg-green-500/20 border border-green-400/30 rounded-xl backdrop-blur-lg">
+          <div className="flex items-center gap-2 text-green-300">
+            <CheckCircle className="h-5 w-5" />
+            <span className="font-semibold">✅ Candy Machine Connected Successfully!</span>
           </div>
+          <p className="text-green-200 text-sm mt-1">
+            Found {Number(candyMachineData.itemsAvailable)} total items, {Number(candyMachineData.itemsRedeemed)} minted
+          </p>
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-2 gap-8">
+        {/* NFT Preview */}
+        <div className="space-y-6">
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+            <CardContent className="p-6">
+              <div className="aspect-square bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                <img 
+                  src={CANDY_MACHINE_CONFIG.PREVIEW_IMAGE} 
+                  alt="NFT Preview"
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&q=80';
+                  }}
+                />
+              </div>
+              <div className="text-center text-white">
+                <h3 className="text-xl font-semibold mb-2">{CANDY_MACHINE_CONFIG.COLLECTION_NAME}</h3>
+                <p className="opacity-75">{CANDY_MACHINE_CONFIG.COLLECTION_DESCRIPTION}</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Main Content */}
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* NFT Preview */}
-          <div className="space-y-6">
-            <Card>
-              <CardContent className="p-6">
-                <div className="aspect-square bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
-                  <img 
-                    src={CANDY_MACHINE_CONFIG.PREVIEW_IMAGE} 
-                    alt="NFT Preview"
-                    className="max-w-full max-h-full object-contain rounded-lg"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&q=80';
-                    }}
-                  />
-                </div>
-                <div className="text-center">
-                  <h3 className="text-xl font-semibold mb-2">Preview NFT</h3>
-                  <p className="text-gray-600">Each NFT is unique and randomly generated</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Minting Interface */}
-          <div className="space-y-6">
-            {/* Collection Stats */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Collection Stats</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {candyMachineData && (
-                  <>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Price</span>
-                      <Badge variant="secondary" className="text-lg font-semibold">
-                        {candyMachineData.price} SOL
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Minted</span>
-                      <span className="font-semibold">
-                        {candyMachineData.itemsRedeemed} / {candyMachineData.itemsAvailable}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{ 
-                          width: `${(candyMachineData.itemsRedeemed / candyMachineData.itemsAvailable) * 100}%` 
-                        }}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Status</span>
-                      <Badge variant={candyMachineData.isActive ? "default" : "secondary"}>
-                        {candyMachineData.isActive ? "Live" : "Not Active"}
-                      </Badge>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Mint Button */}
-            <Card>
-              <CardContent className="p-6">
-                {!connected ? (
-                  <div className="text-center">
-                    <p className="text-gray-600 mb-4">Connect your wallet to mint NFTs</p>
-                    <Button disabled className="w-full">
-                      Connect Wallet First
-                    </Button>
+        {/* Minting Interface */}
+        <div className="space-y-6">
+          {/* Collection Stats */}
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+            <CardHeader>
+              <CardTitle className="text-white">Collection Stats</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-white">
+              {candyMachineData && (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="opacity-75">Price</span>
+                    <Badge variant="secondary" className="text-lg font-semibold bg-white/20">
+                      {eligibility?.price || 0} SOL
+                    </Badge>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <Button 
-                      onClick={handleMint}
-                      disabled={minting || !candyMachineData?.isActive}
-                      className="w-full h-12 text-lg"
-                    >
-                      {minting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Demo Minting...
-                        </>
-                      ) : (
-                        `Demo Mint for ${candyMachineData?.price || 0} SOL`
-                      )}
-                    </Button>
-                    
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <p className="text-yellow-800 text-sm">
-                        ⚠️ This is currently a demo. Real minting requires proper SDK integration with your specific Candy Machine version.
+                  <div className="flex justify-between items-center">
+                    <span className="opacity-75">Minted</span>
+                    <span className="font-semibold">
+                      {Number(candyMachineData.itemsRedeemed)} / {Number(candyMachineData.itemsAvailable)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-white/20 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-purple-400 to-blue-400 h-2 rounded-full transition-all duration-300"
+                      style={{ 
+                        width: `${(Number(candyMachineData.itemsRedeemed) / Number(candyMachineData.itemsAvailable)) * 100}%` 
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="opacity-75">Status</span>
+                    <Badge variant={eligibility?.canMint ? "default" : "secondary"} className="bg-white/20">
+                      {eligibility?.canMint ? "Live" : eligibility?.reason || "Not Available"}
+                    </Badge>
+                  </div>
+                  {connected && (
+                    <div className="flex justify-between items-center">
+                      <span className="opacity-75">Your Balance</span>
+                      <span className="font-semibold">{walletBalance.toFixed(4)} SOL</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Mint Button */}
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+            <CardContent className="p-6">
+              {!connected ? (
+                <div className="text-center text-white">
+                  <p className="mb-4 opacity-75">Connect your wallet to mint NFTs</p>
+                  <Button disabled className="w-full h-12 text-lg">
+                    Connect Wallet First
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Button 
+                    onClick={handleMint}
+                    disabled={minting || !eligibility?.canMint}
+                    className="w-full h-12 text-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  >
+                    {minting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Minting...
+                      </>
+                    ) : (
+                      `Mint NFT for ${eligibility?.price || 0} SOL`
+                    )}
+                  </Button>
+                  
+                  {!eligibility?.canMint && eligibility?.reason && (
+                    <div className="p-3 bg-yellow-500/20 border border-yellow-400/30 rounded-lg">
+                      <p className="text-yellow-200 text-sm">{eligibility.reason}</p>
+                    </div>
+                  )}
+                  
+                  {error && (
+                    <div className="p-3 bg-red-500/20 border border-red-400/30 rounded-lg">
+                      <p className="text-red-200 text-sm">{error}</p>
+                    </div>
+                  )}
+                  
+                  {mintResult?.success && (
+                    <div className="p-4 bg-green-500/20 border border-green-400/30 rounded-lg">
+                      <p className="text-green-200 font-semibold mb-2 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        🎉 NFT Minted Successfully!
                       </p>
+                      {mintResult.signature && (
+                        <div className="space-y-2">
+                          <p className="text-green-300 text-sm">
+                            <strong>Transaction:</strong> {mintResult.signature.slice(0, 8)}...{mintResult.signature.slice(-8)}
+                          </p>
+                          <a
+                            href={`https://explorer.solana.com/tx/${mintResult.signature}?cluster=devnet`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-green-300 hover:text-green-200 text-sm underline"
+                          >
+                            View on Solana Explorer <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      )}
+                      {mintResult.mint && (
+                        <p className="text-green-300 text-sm">
+                          <strong>NFT Mint:</strong> {mintResult.mint.slice(0, 8)}...{mintResult.mint.slice(-8)}
+                        </p>
+                      )}
                     </div>
-                    
-                    {error && (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-red-600 text-sm">{error}</p>
-                      </div>
-                    )}
-                    
-                    {mintedNft && (
-                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-green-800 font-semibold mb-2">🎉 Demo Mint Complete!</p>
-                        <p className="text-green-600 text-sm mb-2">Demo Transaction ID: {mintedNft}</p>
-                        <p className="text-green-600 text-xs">Note: This was a simulation for UI testing</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-            {/* Debug Info */}
-            <Card className="bg-gray-50">
-              <CardHeader>
-                <CardTitle className="text-sm">Candy Machine Account Info</CardTitle>
-              </CardHeader>
-              <CardContent className="text-xs space-y-1">
-                <p><strong>Candy Machine:</strong> {CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID}</p>
-                <p><strong>Network:</strong> {CANDY_MACHINE_CONFIG.NETWORK}</p>
-                <p><strong>RPC:</strong> {CANDY_MACHINE_CONFIG.RPC_URL}</p>
-                {connected && <p><strong>Wallet:</strong> {walletPublicKey?.toString().slice(0, 8)}...{walletPublicKey?.toString().slice(-8)}</p>}
-                {debugInfo && (
-                  <div className="mt-2 p-2 bg-white rounded text-xs">
-                    <p><strong>Account Status:</strong></p>
-                    <pre className="whitespace-pre-wrap overflow-auto max-h-48">{JSON.stringify(debugInfo, null, 2)}</pre>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          {/* Technical Info */}
+          <Card className="bg-white/5 backdrop-blur-lg border-white/10">
+            <CardHeader>
+              <CardTitle className="text-sm text-white/75">Technical Details</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xs space-y-1 text-white/60">
+              <p><strong>Candy Machine:</strong> {CANDY_MACHINE_CONFIG.CANDY_MACHINE_ID}</p>
+              <p><strong>Network:</strong> {CANDY_MACHINE_CONFIG.NETWORK}</p>
+              <p><strong>Program:</strong> Candy Machine Core (Sugar CLI 2.8.1)</p>
+              {connected && <p><strong>Wallet:</strong> {walletPublicKey?.toString().slice(0, 8)}...{walletPublicKey?.toString().slice(-8)}</p>}
+              {candyMachineData && (
+                <>
+                  <p><strong>Collection:</strong> {candyMachineData.collectionMint.slice(0, 8)}...{candyMachineData.collectionMint.slice(-8)}</p>
+                  <p><strong>Authority:</strong> {candyMachineData.authority.slice(0, 8)}...{candyMachineData.authority.slice(-8)}</p>
+                  <p><strong>Fully Loaded:</strong> {candyMachineData.isFullyLoaded ? 'Yes' : 'No'}</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
