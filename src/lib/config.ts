@@ -1,6 +1,6 @@
-// Candy Machine V3 Configuration
+// Candy Machine V3 Configuration for Devnet
 export const CANDY_MACHINE_CONFIG = {
-  CANDY_MACHINE_ID: process.env.NEXT_PUBLIC_CANDY_MACHINE_ID || '7f25YpNjdjR2xJ5sPGV4Qe6c8tE6m9EmVwHq2kNQaRZT',
+  CANDY_MACHINE_ID: process.env.NEXT_PUBLIC_CANDY_MACHINE_ID || 'DAkeJ58KaDE64QxgXxe2Kc4hCQuzYSF8oNuuWVhgQfBS',
   RPC_URL: process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com',
   NETWORK: 'devnet' as const,
   // Collection metadata defaults
