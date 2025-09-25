@@ -73,7 +73,7 @@ export default function WalletConnection() {
       setShowWalletModal(false);
       
       // Select and connect immediately
-      select(walletName);
+      select(walletName as any);
       
       try {
         console.log('Attempting to connect to wallet...');
